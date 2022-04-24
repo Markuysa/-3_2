@@ -5,6 +5,6 @@
 using namespace std;
 int main() {
 	application obj(nullptr); // Объявление корневого объекта с указателем на null
-	obj.build_Tree(); //Построение дерева иерархии
-	return obj.executeApp(); // Запуск системы
+	bool checker = obj.build_Tree(); //Построение дерева иерархии
+	return obj.executeApp(checker); // Запуск системы
 }

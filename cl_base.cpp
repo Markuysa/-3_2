@@ -1,5 +1,6 @@
 #include "cl_base.h"
 #include <iomanip>
+cl_base* cl_base::root;
 cl_base::cl_base(cl_base* p_head, string name) {
 	this->obj_name = name; // Присваивание имени объекту
 	if (p_head) { // Если не nullptr
@@ -23,7 +24,7 @@ void cl_base::set_p(cl_base* ptr) {
 cl_base* cl_base::get_object_by_name(string name) //Метод поиска объекта по имени
 {
 	if (this->childes.size() == 0 && this->get_name() != name) {
-		return nullptr;												// Если это крайний элемент, который не подходит
+		return nullptr;// Если это крайний элемент, который не подходит
 	}
 	if (this->get_name() == name) // Если имя текущего объекта совпадает с требуемым
 		return this;
@@ -43,7 +44,7 @@ void cl_base::print_tree(int num_of_tabs) {
 	string tabulaion = string(num_of_tabs * 4, ' '); // Определение отступа
 
 	for (int i = 0; i < this->childes.size(); i++) {
-		cout << tabulaion << this->childes[i]->get_name() << endl;   //Вывод имени
+		cout << endl << tabulaion << this->childes[i]->get_name();   //Вывод имени
 		if (this->childes[i]->childes.size() != 0) {
 			this->childes[i]->print_tree(num_of_tabs + 1); // Рекурсивный вызов функции для наследников
 		}
@@ -86,52 +87,79 @@ void cl_base::Print_status(int num_of_tabs) {
 
 
 void cl_base::get_by_path() {
-	
-	string command,path;
-	cl_base* current=this;
+
+	string command, path;
+	cl_base* current = this, * object = nullptr;
 	cin >> command;
 	while (command != "END") {
 		cin >> path;
+		if (path=="/")
+			object=cl_base::root;
+		else
+			object = current->get_path(path);
 		string temp_path = path;
-		cl_base* root=this,*temp=nullptr;
 		if (command == "FIND") {
-			if (path == ".")
-				cout << ".     Object name: " << current->get_name() << endl;
-			else if (path[0] == path[1] && path[1] == '/') {
-				temp = this->get_object_by_name(path.erase(0, 2));
-			}
-			else if (path[0] == '/') {
-				if (path.length() == 0)
-					temp = root;
-				else
-					temp = get_path(path);
-			}
-			else if (path[0] != '/') {
-				temp = get_path('/'+current->get_name()+'/'+ path);
-			}
-			if (temp)
-				cout << temp_path << "     Object name: " << temp->get_name() << endl;
+			if (object)
+				cout << endl << temp_path << "     Object name: " << object->get_name();
 			else
-				cout << temp_path << "     Object is not found " << endl;
+				cout << endl << temp_path << "     Object is not found";
 		}
 		else if (command == "SET") {
-			if (path[0] == path[1] && path[1] == '/') {
-				current = this->get_object_by_name(path.erase(0, 2));
+			if (object) {
+				current = object;
+				cout << endl << "Object is set: " << current->get_name();
+
 			}
-			else if (path == ".") {
-				current = this;
-			}
-			else if (path[0] == '/') {
-				if (path.length() == 0)
-					current = root;
-				else
-					current = get_path(path);
-			}
-			else 
-				current= get_path('/' + current->get_name() + '/' + path);
-			cout << "Object is set: " << current->get_name() << endl;
+			else
+				cout << endl << "Object is not found: " << current->get_name() << " " << path;
+
 		}
 		cin >> command;
 	}
-	
+}
+cl_base* cl_base::get_path(string name_of_p) {
+	cl_base* parent = nullptr;
+	int index;
+	cl_base* current = this;
+	string name_of_p2;
+	if (name_of_p[0] == '/') {
+		if (name_of_p.length() == 1) {
+			parent = cl_base::root;
+		}	
+		else if (name_of_p[1] == '/') {
+			parent = (cl_base::root)->get_object_by_name(name_of_p.substr(2, name_of_p.length() - 1));
+		}
+		else 
+			parent = cl_base::root->koord_abs_relat(name_of_p);
+		}
+	else if (name_of_p == ".") {
+		parent = current;
+	}
+	else {
+		parent = current->koord_abs_relat('/' + name_of_p);
+	}
+	return parent;
+}
+cl_base* cl_base::koord_abs_relat(string name_of_p) {
+	cl_base* current = this;
+	int index;
+	string name_of_p2;
+	cl_base* parent=nullptr;
+	name_of_p.erase(0, 1);
+	while (name_of_p.length() != 0) {
+		index = name_of_p.find("/");
+		index = -1 ? index : name_of_p.length();
+		name_of_p2 = name_of_p.substr(0, index);
+		name_of_p.erase(0, name_of_p2.length() + 1);
+		cl_base* head = current->get_object_by_name(name_of_p2);
+		current = head;
+		if (current == nullptr) return nullptr;
+		if (current->get_object_by_name(name_of_p2) == nullptr) {
+			parent = nullptr;
+		}
+		else
+			parent = current->get_object_by_name(name_of_p2);
+
+	}
+	return parent;
 }
