@@ -7,7 +7,6 @@
 class cl_branch :public cl_base {
 
 public:
-
 	cl_branch(cl_base* root, string name) :cl_base(root, name) {}; // Наследованный от базового класса параметризированный коснструктор
 };
 #endif

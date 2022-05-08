@@ -7,4 +7,5 @@ int main() {
 	application obj(nullptr); // Объявление корневого объекта с указателем на null
 	bool checker = obj.build_Tree(); //Построение дерева иерархии
 	return obj.executeApp(checker); // Запуск системы
+
 }

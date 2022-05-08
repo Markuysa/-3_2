@@ -1,6 +1,8 @@
+#include "cl_application.h"
+#include "cl_branch.h"
+#include "classes.h"
 #include "cl_base.h"
 #include <iomanip>
-cl_base* cl_base::root;
 cl_base::cl_base(cl_base* p_head, string name) {
 	this->obj_name = name; // Присваивание имени объекту
 	if (p_head) { // Если не nullptr
@@ -86,6 +88,7 @@ void cl_base::Print_status(int num_of_tabs) {
 }
 
 
+
 void cl_base::get_by_path() {
 
 	string command, path;
@@ -93,68 +96,181 @@ void cl_base::get_by_path() {
 	cin >> command;
 	while (command != "END") {
 		cin >> path;
-		if (path=="/")
-			object=cl_base::root;
+		if (path == "/")
+			object = this; // Если путь состоит только из одного /, то присвоить корневой объект
 		else
-			object = current->get_path(path);
+			object = current->get_path(path); // Иначе присвоить объекту указатель на объект от текущего
 		string temp_path = path;
+		cl_base* temp = nullptr;
 		if (command == "FIND") {
 			if (object)
-				cout << endl << temp_path << "     Object name: " << object->get_name();
+				cout << endl << temp_path << "     Object name: " << object->get_name(); // Если найден объект по координате
 			else
-				cout << endl << temp_path << "     Object is not found";
+				cout << endl << temp_path << "     Object is not found"; //Если объект не найден
 		}
 		else if (command == "SET") {
 			if (object) {
-				current = object;
-				cout << endl << "Object is set: " << current->get_name();
-
+				current = object; // Установленный объект
+				cout << endl << "Object is set: " << current->get_name(); //Если объект успешно установлен
 			}
 			else
-				cout << endl << "Object is not found: " << current->get_name() << " " << path;
+				cout << endl << "Object is not found: " << current->get_name() << " " << path;// Ошибка установки
 
+		}
+		if (command == "EMIT") {    // Если введена функция EMIT
+			string message;
+			getline(cin, message);
+			
+			if (object == nullptr) {
+				cout << endl << "Object " << path << " not found";
+			}
+			else {
+				object->emit(message);
+			}
+		}
+		else if (command == "SET_CONNECT") {  // Если введена функция SET_CONNECT
+			string path_2;
+			cin >> path_2;
+			cl_base* ob2;
+			if (path_2 == "/") ob2 = root;
+			else ob2 = get_path(path_2); //  Определение указателя на объект по координатеvoid
+			if (object == nullptr || ob2 == nullptr) {
+				if (object == nullptr)
+					cout << endl << "Object " << path << " not found";   // Если объект не найден
+				else
+					cout << endl << "Handler object " << path_2 << " not found";
+			}
+			else {
+				object->connect(object, ob2);
+			}
+		}
+
+		else if (command == "DELETE_CONNECT") { // Если введена функция DELETE_CONNECT 
+			string  path_2;
+			cin >> path_2;
+			cl_base* ob2 ;
+			if (path_2== "/") {
+				ob2 = this;
+			}
+			else {
+				ob2 = get_path(path_2);
+			}
+			if (object == nullptr || ob2 == nullptr) {
+				if (object == nullptr)
+					cout << endl << "Object " << path << " not found";
+				else// Если объект не найден
+					cout << endl << "Handler " << path_2 << " not found";
+			}
+			else {
+				object->deletec(object, ob2);
+			}
+		}
+		else if (command == "SET_CONDITION") { // Если введена функция SET_CONDITION 
+			int value;
+			cin >> value;
+			cl_base* obj1;
+			if (path == "/")
+				obj1 = this;
+			else
+				obj1 = get_path(path);//  Определение указателя на объект по координате
+			if (obj1 == nullptr) {
+				cout << endl << "Object " << path << " not found"; // Если объект не найден
+			}
+			else obj1->change_state(value); // Установка значения состояния
 		}
 		cin >> command;
 	}
 }
-cl_base* cl_base::get_path(string name_of_p) {
-	cl_base* parent = nullptr;
-	int index;
-	cl_base* current = this;
-	string name_of_p2;
-	if (name_of_p[0] == '/') {
-		if (name_of_p.length() == 1) {
-			parent = cl_base::root;
-		}	
-		else if (name_of_p[1] == '/') {
-			parent = (cl_base::root)->get_object_by_name(name_of_p.substr(2, name_of_p.length() - 1));
+void cl_base::change_state(int state) {
+	if (state == 0) {
+
+		//Установка нулевого состояния на данный объекта
+		this->set_value(0);
+
+		// Установка нулеового состояния на каждый дочерний объект
+
+		for (int i = 0; i < this->childes.size(); i++) {
+			this->childes[i]->change_state(0);
 		}
-		else 
-			parent = cl_base::root->koord_abs_relat(name_of_p);
-		}
-	else if (name_of_p == ".") {
-		parent = current;
+
+	}
+	else if (this->get_phead() == nullptr) {
+		//Установка состояния для корневого объекта
+		this->set_value(state);
 	}
 	else {
-		parent = current->koord_abs_relat('/' + name_of_p);
+
+		if (this->get_phead()->get_value() == 0) {
+			//Если головной объект не включен
+			//Устанавливается нулевое состояние на данный объект
+			this->set_value(0);
+		}
+		else {
+			//Устанавливается введенное состояние
+			this->set_value(state);
+		}
 	}
-	return parent;
+}
+cl_base* cl_base::get_path(string name_of_p) {
+
+	if (name_of_p == "/") return root;
+	cl_base* temp;
+	string child = "", name_of_r = "";;
+	bool checker = true;
+
+	for (int i = 0; i < name_of_p.length(); i++) {
+		if (name_of_p[i] == '/' and name_of_r == "") {
+			continue;
+		}
+		else if (name_of_p[i] != '/' and checker) {      // Выделение подстроки из имени головного объекта и потомка
+			name_of_r += name_of_p[i];
+		}
+		else if (name_of_p[i] == '/') {
+			checker = false;
+			child += name_of_p[i];
+		}
+		else {
+			child += name_of_p[i];
+		}
+	}
+
+	for (int i = 0; i < this->childes.size(); i++) { // Проход по потомкам текущего объекта
+
+		if (this->childes[i]->get_name() == name_of_r) {
+
+			if (child == "") { // Если в координате был один объект и он найден, то вернуть его
+
+				return this->childes[i];
+			}
+			else {
+
+				temp = this->childes[i]->get_path(child); // Иначе продолжить поиск от ранее найденного
+				if (temp != nullptr) {
+					return temp;
+				}
+			}
+		}
+	}
+	return nullptr;
+
 }
 cl_base* cl_base::koord_abs_relat(string name_of_p) {
 	cl_base* current = this;
 	int index;
 	string name_of_p2;
-	cl_base* parent=nullptr;
-	name_of_p.erase(0, 1);
+	cl_base* parent = nullptr;
+	name_of_p.erase(0, 1); // Удаление первого слеша
 	while (name_of_p.length() != 0) {
-		index = name_of_p.find("/");
-		index = -1 ? index : name_of_p.length();
-		name_of_p2 = name_of_p.substr(0, index);
-		name_of_p.erase(0, name_of_p2.length() + 1);
-		cl_base* head = current->get_object_by_name(name_of_p2);
+		index = name_of_p.find("/"); // Поиск первого вхождения /
+	// Если индекс не найден, то присвоить значение длины координаты
+		if (index == -1)
+			index = name_of_p.length();
+		name_of_p2 = name_of_p.substr(0, index); // Подстрока с именем объекта
+		name_of_p.erase(0, name_of_p2.length() + 1); // Удаление подстроки
+		cl_base* head = current->get_object_by_name(name_of_p2); // Поиск объекта из подстроки
 		current = head;
 		if (current == nullptr) return nullptr;
-		if (current->get_object_by_name(name_of_p2) == nullptr) {
+		if (current->get_object_by_name(name_of_p2) == nullptr) { //Если от текущего объекта не найден объект из координаты
 			parent = nullptr;
 		}
 		else
@@ -162,4 +278,168 @@ cl_base* cl_base::koord_abs_relat(string name_of_p) {
 
 	}
 	return parent;
+}
+
+// Метод установки связи
+void cl_base::set_connection(TYPE_SIGNAL pointer_signal, cl_base* obj_pointer, TYPE_HANDLER pointer_handler) {
+
+	connection_strct* pointer_value;
+
+	for (int i = 0; i < this->connections.size(); i++) {
+		if (connections.at(i)->pointer_handler == pointer_handler &&
+			connections.at(i)->obj_pointer == obj_pointer && 					//Проверка на существование связи с текущими параметрами
+			connections.at(i)->pointer_signal == pointer_signal
+			) return;
+	}
+	pointer_value = new connection_strct;
+
+	pointer_value->obj_pointer = obj_pointer;
+	pointer_value->pointer_handler = pointer_handler;  // Заполнение полей связи
+	pointer_value->pointer_signal = pointer_signal;
+
+	this->connections.push_back(pointer_value); // Добавление в вектор связей 
+
+}
+string cl_base::get_path_of_obj() {
+	string result;
+	if (this == root) {
+		return "/"; 		// Если текущий объект является корневым 
+	}
+	else {
+		cl_base* current = this;
+		while (current != root) {
+			result = '/' + current->get_name() + result; // Иначе с текущего объекта проследовать до корневого и запомнить путь
+			current = current->get_phead();
+
+		}
+	}
+	return result;
+
+}
+
+void cl_base::emit_connection(TYPE_SIGNAL p_signal, string& command) {
+	if (connections.size() == 0 || this->get_value() == 0) return; // Если вектор связей пуст или значение состояния объекта равно 0
+	string obj = this->get_path_of_obj(); // Получение абсолютного пути объекта
+	int counter = 0;
+	for (int i = 0; i < this->connections.size(); i++) {
+		if (this->connections.at(i)->pointer_signal == p_signal) {
+			counter++;
+			if (counter <= 1)
+				this->signal_m(obj);
+			if (this->connections.at(i)->obj_pointer->get_value() != 0)
+			{
+				this->handler_m(this->connections.at(i)->obj_pointer->get_path_of_obj(), command); // Выполнение метода-обработчика
+			}
+		}
+
+	}
+
+}
+
+int cl_base::getObjectNum() {
+	return this->num_of_class; // Получение номера класса
+}
+void cl_base::deleteTheConnection(TYPE_SIGNAL pointer_signal, cl_base* obj_pointer, TYPE_HANDLER pointer_handler) {
+
+	for (int i = 0; i < connections.size(); i++) {
+		if (connections.at(i)->pointer_handler == pointer_handler &&
+			connections.at(i)->obj_pointer == obj_pointer &&		// При обнаружении совпадения удалить связь из вектора
+			connections.at(i)->pointer_signal == pointer_signal
+			) this->connections.erase(connections.begin() + i);
+	}
+}
+void cl_base::set_all() {
+	if (this->childes.size() != 0)
+		for (int i = 0; i < this->childes.size(); i++) {
+			childes.at(i)->set_value(1); 	// Установка готовности объекта (допустимо любое ненулевое значение)
+			childes.at(i)->set_all(); // Рекурсивный вызов для наследников 
+		}
+	else return;
+}
+void cl_base::emit(string message) {
+	cl_base* ob1 = this;
+	cl_base* ob2 = this;
+
+	while (ob2 != root) {
+		if (ob2->get_value() == 0)
+			return;
+		else
+			ob2 = ob2->get_phead();
+	}
+	if (ob1->get_value() != 0) {
+		switch (ob1->getObjectNum()) {
+		case 1:
+			ob1->emit_connection(SIGNAL_D(cl_branch::signal_m), message);
+			break;
+		case 2:
+			ob1->emit_connection(SIGNAL_D(cl_2::signal_m), message);
+			break;
+		case 3:
+			ob1->emit_connection(SIGNAL_D(cl_3::signal_m), message);  /* Выполнение метода выдачи сигнала для объектов
+																			с учетом классовой принадлежности*/
+			break;
+		case 4:
+			ob1->emit_connection(SIGNAL_D(cl_4::signal_m), message);
+			break;
+		case 5:
+			ob1->emit_connection(SIGNAL_D(cl_5::signal_m), message);
+			break;
+		case 6:
+			ob1->emit_connection(SIGNAL_D(cl_6::signal_m), message);
+			break;
+		}
+	}
+
+}
+
+
+void cl_base::connect(cl_base* ob1, cl_base* ob2) {
+	switch (ob1->getObjectNum()) {
+	case 1:
+		ob1->set_connection(SIGNAL_D(cl_branch::signal_m), (cl_branch*)ob2, HANDLER_D(cl_branch::handler_m));
+		break;
+	case 2:
+		ob1->set_connection(SIGNAL_D(cl_2::signal_m), (cl_2*)ob2, HANDLER_D(cl_2::handler_m));
+		break;
+	case 3:
+		ob1->set_connection(SIGNAL_D(cl_3::signal_m), (cl_3*)ob2, HANDLER_D(cl_3::handler_m)); /* Выполнение метода установки связи для объектов
+																									с учетом классовой принадлежности*/
+		break;
+	case 4:
+		ob1->set_connection(SIGNAL_D(cl_4::signal_m), (cl_4*)ob2, HANDLER_D(cl_4::handler_m));
+		break;
+	case 5:
+		ob1->set_connection(SIGNAL_D(cl_5::signal_m), (cl_5*)ob2, HANDLER_D(cl_5::handler_m));
+		break;
+	case 6:
+		ob1->set_connection(SIGNAL_D(cl_6::signal_m), (cl_6*)ob2, HANDLER_D(cl_6::handler_m));
+		break;
+	}
+
+}
+
+
+void cl_base::deletec(cl_base* ob1, cl_base* ob2) {
+	switch (ob1->getObjectNum()) {
+	case 1:
+		ob1->deleteTheConnection(SIGNAL_D(cl_branch::signal_m), (cl_branch*)ob2, HANDLER_D(cl_branch::handler_m));
+		break;
+	case 2:
+		ob1->deleteTheConnection(SIGNAL_D(cl_2::signal_m), (cl_2*)ob2, HANDLER_D(cl_2::handler_m));
+		break;
+	case 3:
+		ob1->deleteTheConnection(SIGNAL_D(cl_3::signal_m), (cl_3*)ob2, HANDLER_D(cl_3::handler_m));
+		break;																									/* Выполнение метода удаления связи для объектов
+																													с учетом классовой принадлежности*/
+	case 4:
+		ob1->deleteTheConnection(SIGNAL_D(cl_4::signal_m), (cl_4*)ob2, HANDLER_D(cl_4::handler_m));
+		break;
+	case 5:
+		ob1->deleteTheConnection(SIGNAL_D(cl_5::signal_m), (cl_5*)ob2, HANDLER_D(cl_5::handler_m));
+		break;
+	case 6:
+		ob1->deleteTheConnection(SIGNAL_D(cl_6::signal_m), (cl_6*)ob2, HANDLER_D(cl_6::handler_m));
+		break;
+	}
+
 }
